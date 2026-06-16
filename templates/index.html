@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio Agent — 智能投研</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: #f0f2f6; color: #1f2937;
+        }
+        .app { display: flex; height: 100vh; }
+
+        /* Sidebar */
+        .sidebar {
+            width: 300px; min-width: 300px; background: #fff;
+            display: flex; flex-direction: column;
+            border-right: 1px solid #e5e7eb;
+        }
+        .side-hd {
+            padding: 24px 20px 12px; border-bottom: 1px solid #f3f4f6;
+        }
+        .side-hd h1 { font-size: 20px; font-weight: 700; }
+        .side-hd h1 span { color: #4f46e5; }
+        .side-hd p { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+
+        .side-bd { flex: 1; overflow-y: auto; padding: 16px 20px; }
+
+        .uz {
+            border: 1.5px dashed #d1d5db; border-radius: 10px;
+            padding: 24px 16px; text-align: center; cursor: pointer;
+            transition: .2s; background: #f9fafb;
+        }
+        .uz:hover { border-color: #4f46e5; background: #eef2ff; }
+        .uz.has { border-color: #10b981; background: #ecfdf5; }
+        .uz .icon { font-size: 28px; }
+        .uz .t { font-size: 13px; font-weight: 500; color: #374151; margin-top: 6px; }
+        .uz .h { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+        .uz input { display: none; }
+        .uz .fn { font-size: 12px; color: #10b981; margin-top: 6px; display: none; }
+
+        .btn {
+            width: 100%; padding: 10px; margin-top: 10px;
+            background: #4f46e5; color: #fff; border: none;
+            border-radius: 8px; font-size: 13px; font-weight: 500;
+            cursor: pointer; transition: .2s;
+        }
+        .btn:hover { background: #4338ca; }
+        .btn:disabled { background: #c7d2fe; cursor: not-allowed; }
+
+        .st {
+            font-size: 11px; font-weight: 600; color: #9ca3af;
+            text-transform: uppercase; letter-spacing: .4px;
+            margin: 16px 0 8px;
+        }
+        .ql { list-style: none; }
+        .ql li {
+            padding: 7px 10px; border-radius: 6px; font-size: 12px;
+            color: #6b7280; cursor: pointer; transition: .15s;
+        }
+        .ql li:hover { background: #eef2ff; color: #4f46e5; }
+        .ql li::before { content: "💬 "; font-size: 11px; }
+
+        .mp { font-size: 12px; color: #6b7280; min-height: 20px; }
+        .mp .e { color: #d1d5db; font-size: 11px; }
+        .mi { padding: 4px 0; border-bottom: 1px solid #f3f4f6; display: flex; align-items: baseline; gap: 5px; }
+        .mi:last-child { border-bottom: none; }
+        .mc { font-size: 9px; background: #eef2ff; color: #4f46e5; padding: 0 6px; border-radius: 3px; white-space: nowrap; }
+        .mv { color: #6b7280; }
+
+        .side-ft {
+            padding: 12px 20px; border-top: 1px solid #f3f4f6;
+            font-size: 10px; color: #d1d5db; text-align: center;
+        }
+
+        /* Chat */
+        .chat { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .chat-hd {
+            padding: 12px 24px; border-bottom: 1px solid #e5e7eb;
+            display: flex; align-items: center; gap: 8px; background: #fff;
+        }
+        .chat-hd .dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; }
+        .chat-hd .s { font-size: 12px; color: #9ca3af; }
+        .chat-hd .t { font-size: 13px; font-weight: 500; color: #374151; margin-left: auto; }
+
+        .chat-ms {
+            flex: 1; overflow-y: auto; padding: 20px 24px;
+            scroll-behavior: smooth; background: #f9fafb;
+        }
+
+        .m { margin-bottom: 16px; display: flex; }
+        .m.u { justify-content: flex-end; }
+        .m.a { justify-content: flex-start; }
+        .mc2 { max-width: 70%; display: flex; flex-direction: column; }
+        .ml { font-size: 10px; color: #9ca3af; margin-bottom: 3px; padding: 0 4px; }
+        .m.u .ml { text-align: right; }
+        .mb {
+            padding: 10px 16px; border-radius: 16px; font-size: 13px;
+            line-height: 1.6; word-break: break-word;
+        }
+        .m.u .mb { background: #4f46e5; color: #fff; border-bottom-right-radius: 4px; }
+        .m.a .mb { background: #fff; color: #1f2937; border-bottom-left-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+
+        /* Progress */
+        .pg { margin: 4px 0; }
+        .pg-l { font-size: 12px; color: #6b7280; margin-bottom: 5px; display: flex; align-items: center; gap: 5px; }
+        .pg-t { width: 100%; height: 5px; background: #e5e7eb; border-radius: 3px; overflow: hidden; }
+        .pg-f { height: 100%; background: linear-gradient(90deg, #4f46e5, #818cf8); border-radius: 3px; transition: width .35s ease; width: 0%; }
+        .pg-s { font-size: 10px; color: #9ca3af; margin-top: 3px; }
+
+        /* Result card */
+        .rc {
+            background: #f8fafc; border-radius: 12px; padding: 16px 20px; margin: 4px 0;
+            border: 1px solid #e5e7eb;
+        }
+        .rc h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #1f2937; }
+        .rc-s { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+        .rc-s span { padding: 4px 14px; border-radius: 16px; font-size: 12px; font-weight: 500; }
+        .rc-s .total { background: #eef2ff; color: #4f46e5; }
+        .rc-s .aaa   { background: #f0fff4; color: #237804; }
+        .rc-s .aa    { background: #f0fff4; color: #389e0d; }
+        .rc-s .a     { background: #fffbe6; color: #d48806; }
+        .rc-s .bb    { background: #fff7e6; color: #d46b08; }
+        .rc-s .cc    { background: #fff2f0; color: #cf1322; }
+        .rc-t { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
+        .rc-t span { background: #fff; border: 1px solid #e5e7eb; padding: 2px 8px; border-radius: 4px; font-family: monospace; font-size: 11px; color: #6b7280; }
+        .rc-b { padding: 7px 20px; background: #4f46e5; color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; }
+        .rc-b:hover { background: #4338ca; }
+
+        /* Input */
+        .ci { padding: 12px 24px 16px; background: #fff; border-top: 1px solid #e5e7eb; }
+        .ci .r { display: flex; gap: 8px; max-width: 900px; margin: 0 auto; background: #f3f4f6; border-radius: 10px; padding: 4px; }
+        .ci input { flex: 1; padding: 8px 14px; border: none; background: transparent; font-size: 13px; outline: none; color: #1f2937; }
+        .ci input::placeholder { color: #9ca3af; }
+        .ci button { padding: 8px 18px; background: #4f46e5; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+        .ci button:hover { background: #4338ca; }
+
+        .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid #4f46e5; border-top-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .cur::after { content: "▊"; animation: blink .8s infinite; }
+        @keyframes blink { 0%,100% { opacity:1 } 50% { opacity:0 } }
+        .typ { display: flex; gap: 4px; padding: 4px 0; }
+        .typ span { width: 7px; height: 7px; border-radius: 50%; background: #d1d5db; animation: bounce 1.4s infinite; }
+        .typ span:nth-child(2) { animation-delay: .2s; }
+        .typ span:nth-child(3) { animation-delay: .4s; }
+        @keyframes bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
+    </style>
+</head>
+<body>
+<div class="app">
+    <aside class="sidebar">
+        <div class="side-hd">
+            <h1>📊 <span>投研助手</span></h1>
+            <p>Portfolio Agent</p>
+        </div>
+        <div class="side-bd">
+            <div class="uz" id="dropZone">
+                <div class="icon">📁</div>
+                <div class="t">上传持仓 CSV</div>
+                <div class="h">点击或拖拽</div>
+                <input type="file" id="fileInput" accept=".csv">
+                <div class="fn" id="fileStatus"></div>
+            </div>
+            <button class="btn" id="btnAnalyze" disabled>📊 分析持仓</button>
+
+            <div class="st">💡 试试问</div>
+            <ul class="ql">
+                <li onclick="sendMsg('农业银行怎么样')">农业银行怎么样</li>
+                <li onclick="sendMsg('沪电股份风险')">沪电股份风险</li>
+                <li onclick="sendMsg('给点策略建议')">给点策略建议</li>
+                <li onclick="sendMsg('今天市场情绪')">今天市场情绪</li>
+            </ul>
+
+            <div class="st">📌 偏好</div>
+            <div class="mp" id="interestsPanel"><span class="e">加载中...</span></div>
+            <div class="st">📋 历史</div>
+            <div class="mp" id="historyPanel"><span class="e">加载中...</span></div>
+
+            <div style="display:flex;gap:6px;margin-top:8px">
+                <button onclick="loadMemory()" style="flex:1;padding:5px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;font-size:11px;cursor:pointer">🔄 刷新</button>
+                <button onclick="clearMemory()" style="flex:1;padding:5px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;font-size:11px;cursor:pointer;color:#dc2626">🗑️ 清空</button>
+            </div>
+        </div>
+        <div class="side-ft">千问 LLM · Tushare · AKShare</div>
+    </aside>
+
+    <main class="chat">
+        <div class="chat-hd">
+            <span class="dot"></span><span class="s">在线</span>
+            <span class="t">💬 智能对话</span>
+        </div>
+        <div class="chat-ms" id="chatMsgs">
+            <div class="m a">
+                <div class="mc2">
+                    <div class="ml">助手</div>
+                    <div class="mb">👋 你好！上传持仓 CSV 可批量分析，或在聊天框输入股票名称查询。</div>
+                </div>
+            </div>
+        </div>
+        <div class="ci">
+            <div class="r">
+                <input type="text" id="chatInput" placeholder="输入股票或问题..." autofocus>
+                <button id="btnSend">发送</button>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+function byId(id) { return document.getElementById(id); }
+
+// ── File upload ──
+const dz = byId('dropZone'), fi = byId('fileInput'), fs = byId('fileStatus');
+const ba = byId('btnAnalyze');
+let upFile = null;
+
+dz.onclick = () => fi.click();
+dz.ondragover = e => e.preventDefault();
+dz.ondragleave = () => dz.classList.remove('dragover');
+dz.ondrop = e => { e.preventDefault(); if (e.dataTransfer.files.length) { fi.files = e.dataTransfer.files; onFileSel(); } };
+fi.onchange = onFileSel;
+function onFileSel() {
+    const f = fi.files[0];
+    if (!f) return;
+    upFile = f;
+    fs.textContent = '✅ ' + f.name;
+    fs.style.display = 'block';
+    dz.classList.add('has');
+    ba.disabled = false;
+}
+
+// ── Chat ──
+const cm = byId('chatMsgs'), ci = byId('chatInput'), bs = byId('btnSend');
+ci.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); sendMsg(ci.value); } });
+bs.onclick = () => sendMsg(ci.value);
+
+function sendMsg(text) {
+    text = (text || ci.value || '').trim();
+    if (!text) return;
+    ci.value = '';
+    addUserMsg(text);
+    startChatStream(text);
+}
+
+function addUserMsg(t) {
+    const d = document.createElement('div'); d.className = 'm u';
+    d.innerHTML = `<div class="mc2"><div class="ml">你</div><div class="mb">${escHtml(t)}</div></div>`;
+    cm.appendChild(d); cm.scrollTop = cm.scrollHeight;
+}
+
+function addAssistMsg(html, id) {
+    const d = document.createElement('div'); d.className = 'm a';
+    const idAttr = id ? ` id="${id}"` : '';
+    d.innerHTML = `<div class="mc2"><div class="ml">助手</div><div class="mb"${idAttr}>${html}</div></div>`;
+    cm.appendChild(d); cm.scrollTop = cm.scrollHeight;
+    return id;
+}
+
+function startChatStream(text) {
+    const lid = 'ld' + Date.now();
+    addAssistMsg('<div class="typ"><span></span><span></span><span></span></div>', lid);
+
+    fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text }),
+    }).then(r => {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const reader = r.body.getReader(), dec = new TextDecoder();
+        let buf = '', reply = '';
+
+        function read() {
+            reader.read().then(({ done, value }) => {
+                if (done) return;
+                buf += dec.decode(value, { stream: true });
+                const lines = buf.split('\n');
+                buf = lines.pop() || '';
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const payload = line.slice(6).trim();
+                    if (payload === '[DONE]') continue;
+                    try {
+                        const d = JSON.parse(payload);
+                        if (d.token) {
+                            reply += d.token;
+                            const el = byId(lid);
+                            if (el) { el.textContent = reply; el.classList.add('cur'); cm.scrollTop = cm.scrollHeight; }
+                        }
+                    } catch {}
+                }
+                read();
+            });
+        }
+        read();
+    }).catch(e => { const el = byId(lid); if (el) el.innerHTML = '❌ ' + escHtml(e.message); });
+}
+
+// ── Portfolio analysis ──
+ba.onclick = () => {
+    if (!upFile) return;
+    addUserMsg('分析持仓 ' + upFile.name);
+
+    const mid = 'pa' + Date.now();
+    const tmp = document.createElement('div'); tmp.className = 'm a';
+    tmp.innerHTML = `<div class="mc2"><div class="ml">助手</div><div class="mb" id="${mid}" style="max-height:400px;overflow-y:auto"><div class="pg"><div class="pg-l"><span class="spin"></span> <span id="paLabel">正在分析...</span></div><div class="pg-t"><div class="pg-f" id="paFill"></div></div><div id="paProgList" style="margin-top:8px;max-height:280px;overflow-y:auto"></div></div></div></div>`;
+    cm.appendChild(tmp); cm.scrollTop = cm.scrollHeight;
+
+    const fd = new FormData(); fd.append('file', upFile);
+    fetch('/analyze', { method: 'POST', body: fd }).then(r => {
+        const reader = r.body.getReader(), dec = new TextDecoder(); let buf = '';
+        function read() {
+            reader.read().then(({ done, value }) => {
+                if (done) return;
+                buf += dec.decode(value, { stream: true });
+                const lines = buf.split('\n');
+                buf = lines.pop() || '';
+                for (let i = 0; i < lines.length; i++) {
+                    if (!lines[i].startsWith('event: ')) continue;
+                    const evt = lines[i].slice(7).trim();
+                    const dl = lines[i + 1];
+                    if (!dl || !dl.startsWith('data: ')) continue;
+                    let data;
+                    try { data = JSON.parse(dl.slice(6)); } catch { continue; }
+                    if (evt === 'progress') {
+                        const lab = byId('paLabel');
+                        if (data.label) {
+                            if (lab) lab.textContent = data.label;
+                            const progDiv = document.getElementById('paProgList');
+                            if (progDiv) {
+                                const row = document.createElement('div');
+                                row.style.cssText = 'padding:3px 0;font-size:12px;color:#374151;border-bottom:1px solid #f3f4f6';
+                                row.textContent = data.label;
+                                progDiv.appendChild(row);
+                                progDiv.parentElement.scrollTop = progDiv.parentElement.scrollHeight;
+                            }
+                        }
+                        byId('paFill') && (byId('paFill').style.width = '50%');
+                    } else if (evt === 'complete') {
+                        byId(mid).innerHTML = buildResultCard(data);
+                    } else if (evt === 'error') {
+                        byId(mid).innerHTML = '❌ ' + escHtml(data.message || '出错');
+                    }
+                }
+                read();
+            });
+        }
+        read();
+    }).catch(e => { byId(mid).innerHTML = '❌ ' + escHtml(e.message); });
+};
+
+function buildResultCard(data) {
+    const s = data.summary || {};
+    const tags = (s.stocks || []).map(h => `<span>${h.code} ${h.name}</span>`).join('');
+    return `<div class="rc"><h3>📊 持仓分析完成</h3><div class="rc-s">
+        <span class="total">📈 ${s.total || 0}</span>
+        <span class="aaa">🟢 AAA ${s.aaa || 0}</span>
+        <span class="aa">🟢 AA ${s.aa || 0}</span>
+        <span class="a">🟡 A ${s.a || 0}</span>
+        <span class="bb">🟠 BB ${s.bb || 0}</span>
+        <span class="cc">🔴 CC ${s.cc || 0}</span>
+    </div><div class="rc-t">${tags}</div>
+    <button class="rc-b" onclick="window.open('/result/${data.result_id}','_blank')">查看完整报告 ↗</button></div>`;
+}
+
+// ── Memory ──
+async function loadMemory() {
+    try {
+        const [iR, hR] = await Promise.all([fetch('/api/memory/interests'), fetch('/api/memory/history')]);
+        const items = (await iR.json()).items || [];
+        const hist = await hR.json();
+        byId('interestsPanel').innerHTML = items.length
+            ? items.slice(0, 6).map(i => `<div class="mi"><span class="mc">${escHtml(i.category)}</span><span class="mv">${escHtml(i.content)}</span></div>`).join('')
+            : '<span class="e">暂无</span>';
+        const notes = hist.recent_notes || [];
+        const dates = [...new Set((hist.portfolios || []).map(p => p.upload_date))];
+        const parts = dates.length ? ['📅 ' + dates.join(', ')] : [];
+        notes.slice(0, 4).forEach(n => {
+            const ic = n.risk_level === 'cc' ? '🔴' : n.risk_level === 'bb' ? '🟠' : n.risk_level === 'a' ? '🟡' : '🟢';
+            parts.push(ic + ' ' + (n.stock_code || '') + ' ' + (n.stock_name || '') + ' → ' + n.risk_level);
+        });
+        byId('historyPanel').innerHTML = parts.length
+            ? parts.map(p => `<div class="mi">${p}</div>`).join('')
+            : '<span class="e">暂无</span>';
+    } catch (e) {
+        byId('interestsPanel').innerHTML = '<span class="e">加载失败</span>';
+    }
+}
+
+async function clearMemory() {
+    try {
+        const r = await fetch('/api/memory/clear', { method: 'POST' });
+        const d = await r.json();
+        if (d.ok) {
+            byId('interestsPanel').innerHTML = '<span class="e">已清空</span>';
+            byId('historyPanel').innerHTML = '<span class="e">已清空</span>';
+            const el = document.createElement('div'); el.className = 'm a';
+            el.innerHTML = '<div class="mc2"><div class="ml">助手</div><div class="mb">✅ 数据已清空</div></div>';
+            cm.appendChild(el); cm.scrollTop = cm.scrollHeight;
+        }
+    } catch (e) { alert('失败: ' + e.message); }
+}
+
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// ── Init ──
+loadMemory();
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+# Core
+python-dotenv>=1.0.0
+
+# Data
+akshare>=1.16.0
+tushare>=1.4.0
+pandas>=2.0.0
+
+# Web
+flask>=3.0.0
+
+# Agent
+langgraph>=1.0.0
+
+# LLM
+openai>=1.0.0
+
+# RAG
+langchain-huggingface>=0.1.0
+faiss-cpu>=1.8.0
+rank-bm25>=0.2.0

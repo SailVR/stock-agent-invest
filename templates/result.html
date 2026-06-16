@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>持仓分析结果 — Portfolio Agent</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: #f0f2f6; color: #1a1a2e; padding: 32px 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        /* ── Header ── */
+        .header {
+            background: linear-gradient(135deg, #1a1a2e, #4a6cf7);
+            color: #fff; border-radius: 16px; padding: 28px 36px; margin-bottom: 24px;
+        }
+        .header h1 { font-size: 20px; font-weight: 700; }
+        .header .sub { opacity: .7; font-size: 13px; margin-top: 2px; }
+
+        /* ── Stats row ── */
+        .stats { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+        .stat-card {
+            background: #fff; border-radius: 10px; padding: 16px 24px;
+            box-shadow: 0 1px 4px rgba(0,0,0,.04); text-align: center; min-width: 100px;
+        }
+        .stat-card .num { font-size: 24px; font-weight: 700; }
+        .stat-card .label { font-size: 12px; color: #888; margin-top: 2px; }
+
+        /* ── Market sentiment ── */
+        .sentiment-box {
+            background: #f0f5ff; border: 1px solid #adc6ff;
+            border-radius: 12px; padding: 16px 20px; margin-bottom: 24px;
+        }
+        .sentiment-box h3 { font-size: 13px; color: #1d39c4; margin-bottom: 6px; }
+        .sentiment-box p { font-size: 13px; color: #333; line-height: 1.6; }
+
+        /* ── Strategy section ── */
+        .strategy-box {
+            background: #fff7e6; border: 1px solid #ffd591;
+            border-radius: 12px; padding: 20px; margin-bottom: 24px;
+        }
+        .strategy-box h3 { font-size: 14px; color: #d46b08; margin-bottom: 10px; }
+        .strategy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .strategy-item { background: #fff; padding: 12px; border-radius: 8px; }
+        .strategy-item .s-title { font-weight: 600; font-size: 12px; color: #333; margin-bottom: 4px; }
+        .strategy-item .s-body { font-size: 12px; color: #555; line-height: 1.5; }
+        .strategy-footer {
+            margin-top: 10px; padding: 8px; background: #fff; border-radius: 8px;
+            font-size: 13px; font-weight: 600; color: #d46b08; text-align: center;
+        }
+
+        /* ── Report section ── */
+        .report-box {
+            background: #f0f5ff; border: 1px solid #adc6ff;
+            border-radius: 12px; padding: 20px; margin-bottom: 24px;
+        }
+        .report-box h3 { font-size: 14px; color: #1d39c4; margin-bottom: 10px; }
+        .report-box .report-body { font-size: 13px; color: #333; line-height: 1.8; white-space: pre-wrap; }
+
+        /* ── Holdings table ── */
+        .table-wrap {
+            background: #fff; border-radius: 12px;
+            box-shadow: 0 1px 4px rgba(0,0,0,.04); overflow: hidden;
+        }
+        .table-header {
+            padding: 16px 24px; border-bottom: 1px solid #f0f0f0;
+            font-size: 15px; font-weight: 600; color: #333;
+        }
+        .table-scroll { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; min-width: 880px; }
+        thead th {
+            padding: 12px 16px; font-size: 11px; font-weight: 600; color: #888;
+            text-transform: uppercase; letter-spacing: .3px;
+            background: #fafbfc; border-bottom: 1px solid #eee; white-space: nowrap;
+        }
+        tbody tr { transition: background .15s; }
+        tbody tr:hover { background: #f8f9fc; }
+        tbody td {
+            padding: 14px 16px; font-size: 13px; border-bottom: 1px solid #f5f5f5;
+            vertical-align: middle;
+        }
+        tbody tr:last-child td { border-bottom: none; }
+
+        /* ── Table cells ── */
+        .code-tag {
+            display: inline-block; background: #f0f3ff; color: #4a6cf7;
+            padding: 2px 8px; border-radius: 4px; font-family: monospace; font-size: 12px;
+        }
+        .stock-name { font-weight: 500; font-size: 13px; }
+
+        /* Risk badges */
+        .risk-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 3px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;
+        }
+        .risk-badge.aaa { background: #f0fff4; color: #237804; }
+        .risk-badge.aa  { background: #f6ffed; color: #52c41a; }
+        .risk-badge.a   { background: #fffbe6; color: #d48806; }
+        .risk-badge.bb  { background: #fff2e5; color: #d46b08; }
+        .risk-badge.cc  { background: #fff1f0; color: #cf1322; }
+
+        /* Fin numbers */
+        .fin-cell { text-align: right; font-family: ui-monospace, monospace; font-size: 12px; }
+        .fin-cell.up { color: #389e0d; }
+        .fin-cell.down { color: #cf1322; }
+        .fin-cell .na { color: #ccc; font-family: sans-serif; }
+
+        /* Tags */
+        .tag {
+            display: inline-block; padding: 1px 8px; border-radius: 4px;
+            font-size: 11px; margin: 1px 2px;
+        }
+        .tag.warn { background: #fff2f0; color: #cf1322; }
+        .tag.ok { background: #f0fff4; color: #389e0d; }
+
+        /* News tooltip */
+        .news-cell {
+            font-size: 12px; color: #666; max-width: 200px;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            cursor: default; position: relative;
+        }
+        .news-cell:hover { white-space: normal; overflow: visible; background: #fff; }
+
+        /* LLM comment */
+        .llm-cell { font-size: 12px; color: #555; max-width: 220px; line-height: 1.5; }
+
+        .back-btn {
+            display: inline-block; margin-top: 20px; color: #4a6cf7;
+            text-decoration: none; font-size: 13px; font-weight: 500;
+        }
+        .back-btn:hover { text-decoration: underline; }
+        .empty { color: #999; font-size: 13px; padding: 30px 0; text-align: center; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <h1>📊 持仓分析结果</h1>
+        <p class="sub">Portfolio Agent · 综合 Market / Company / Risk / Strategy / Report</p>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats">
+        <div class="stat-card">
+            <div class="num">{{ summary.total_stocks }}</div>
+            <div class="label">持仓</div>
+        </div>
+        {% set aaa = analysis|selectattr("risk_level", "equalto", "aaa")|list|length %}
+        {% set aa  = analysis|selectattr("risk_level", "equalto", "aa")|list|length %}
+        {% set a   = analysis|selectattr("risk_level", "equalto", "a")|list|length %}
+        {% set bb  = analysis|selectattr("risk_level", "equalto", "bb")|list|length %}
+        {% set cc  = analysis|selectattr("risk_level", "equalto", "cc")|list|length %}
+        <div class="stat-card"><div class="num" style="color:#237804">{{ aaa }}</div><div class="label">AAA</div></div>
+        <div class="stat-card"><div class="num" style="color:#52c41a">{{ aa }}</div><div class="label">AA</div></div>
+        <div class="stat-card"><div class="num" style="color:#d48806">{{ a }}</div><div class="label">A</div></div>
+        <div class="stat-card"><div class="num" style="color:#d46b08">{{ bb }}</div><div class="label">BB</div></div>
+        <div class="stat-card"><div class="num" style="color:#cf1322">{{ cc }}</div><div class="label">CC</div></div>
+        {% if summary.prey_mean is defined %}
+        <div class="stat-card"><div class="num" style="color:#4a6cf7">{{ "%.2f"|format(summary.prey_mean * 100) }}%</div><div class="label">平均 prey</div></div>
+        {% endif %}
+    </div>
+
+    <!-- Market sentiment -->
+    {% if market_sentiment %}
+    <div class="sentiment-box">
+        <h3>📈 市场情绪（千问 LLM）</h3>
+        <p>{{ market_sentiment }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Strategy -->
+    {% if strategy_result and strategy_result.get('overall_strategy') %}
+    <div class="strategy-box">
+        <h3>🧠 策略建议（Strategy Agent）</h3>
+        <div class="strategy-grid">
+            <div class="strategy-item"><div class="s-title">📊 市场判断</div><div class="s-body">{{ strategy_result.get('market_judgment','') }}</div></div>
+            <div class="strategy-item"><div class="s-title">💼 持仓建议</div><div class="s-body">{{ strategy_result.get('position_suggestions','') }}</div></div>
+            <div class="strategy-item"><div class="s-title">⚠️ 风险提示</div><div class="s-body">{{ strategy_result.get('risk_reminders','') }}</div></div>
+            <div class="strategy-item"><div class="s-title">🔭 明日关注</div><div class="s-body">{{ strategy_result.get('tomorrow_focus','') }}</div></div>
+        </div>
+        <div class="strategy-footer">📌 总体策略：{{ strategy_result.get('overall_strategy','') }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Report -->
+    {% if report_text %}
+    <div class="report-box">
+        <h3>📝 投资日报（Report Agent）</h3>
+        <div class="report-body">{{ report_text }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Risk signals -->
+    {% if risk_signals %}
+    <div class="strategy-box" style="background:#fff2f0;border-color:#ffccc7">
+        <h3 style="color:#cf1322">⚠️ 全局风险信号</h3>
+        <ul style="padding-left:20px;font-size:13px;color:#555;line-height:1.8">
+            {% for sig in risk_signals %}<li>{{ sig }}</li>{% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- Holdings table -->
+    <div class="table-wrap">
+        <div class="table-header">📋 持仓分析明细</div>
+        {% if analysis %}
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>代码</th>
+                        <th>名称</th>
+                        <th>评级</th>
+                        <th style="text-align:right">ROE</th>
+                        <th style="text-align:right">负债率</th>
+                        <th style="text-align:right">毛利率</th>
+                        <th style="text-align:right">净利同比</th>
+                        <th>信号</th>
+                        <th>LLM 点评</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in analysis %}
+                    <tr>
+                        <td><span class="code-tag">{{ a.code }}</span></td>
+                        <td class="stock-name">{{ a.name }}</td>
+                        <td>
+                            <span class="risk-badge {{ a.risk_level }}">
+                                {% if a.risk_level == "aaa" %}🟢 AAA
+                                {% elif a.risk_level == "aa" %}🟢 AA
+                                {% elif a.risk_level == "a" %}🟡 A
+                                {% elif a.risk_level == "bb" %}🟠 BB
+                                {% else %}🔴 CC
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td class="fin-cell {% if a.fin_roe is not none and a.fin_roe < 0 %}down{% elif a.fin_roe is not none and a.fin_roe > 15 %}up{% endif %}">
+                            {% if a.fin_roe is not none %}{{ "%.1f"|format(a.fin_roe) }}%{% else %}<span class="na">-</span>{% endif %}
+                        </td>
+                        <td class="fin-cell {% if a.fin_debt_ratio is not none and a.fin_debt_ratio > 70 %}down{% endif %}">
+                            {% if a.fin_debt_ratio is not none %}{{ "%.1f"|format(a.fin_debt_ratio) }}%{% else %}<span class="na">-</span>{% endif %}
+                        </td>
+                        <td class="fin-cell {% if a.fin_grossprofit_margin is not none and a.fin_grossprofit_margin < 10 %}down{% elif a.fin_grossprofit_margin is not none and a.fin_grossprofit_margin > 40 %}up{% endif %}">
+                            {% if a.fin_grossprofit_margin is not none %}{{ "%.1f"|format(a.fin_grossprofit_margin) }}%{% else %}<span class="na">-</span>{% endif %}
+                        </td>
+                        <td class="fin-cell">
+                            {% if a.fin_net_profit_yoy is not none %}
+                                <span class="{% if a.fin_net_profit_yoy > 0 %}up{% else %}down{% endif %}">
+                                {{ "%.1f"|format(a.fin_net_profit_yoy) }}%
+                                </span>
+                            {% else %}<span class="na">-</span>{% endif %}
+                        </td>
+                        <td>
+                            {% for sig in a.risk_signals %}
+                                <span class="tag warn">{{ sig }}</span>
+                            {% endfor %}
+                            {% for pos in a.positives %}
+                                <span class="tag ok">{{ pos }}</span>
+                            {% endfor %}
+                        </td>
+                        <td class="llm-cell">{{ a.llm_summary | default('') }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty">无分析数据</div>
+        {% endif %}
+    </div>
+
+    <a href="/" class="back-btn">← 返回重新上传</a>
+</div>
+</body>
+</html>
