@@ -70,6 +70,7 @@ def llm_config() -> dict:
 # ── Embedding / RAG ───────────────────────────────────────────────────
 
 EMBEDDING_MODEL = "BAAI/bge-small-zh-v1.5"
-EMBEDDING_DIM = 384
+# EmbeddingModel 会在加载后自动探测真实维度；该值只作为旧测试/临时向量用例的默认值。
+EMBEDDING_DIM = 512
 EMBEDDING_DEVICE = "cpu"
 HF_ENDPOINT = "https://hf-mirror.com"

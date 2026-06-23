@@ -20,8 +20,15 @@ if str(_PROJECT_ROOT) not in sys.path:
 from src.logs import setup_logging
 setup_logging()
 
-# 导入所有 agent
-from app import portfolio_agent, market_agent, company_agent, risk_agent, strategy_agent, report_agent
+# 导入所有 agent。不要从 app.py 导入，避免触发 Flask/RAG 初始化。
+from src.agents import (
+    portfolio_agent,
+    market_agent,
+    company_agent,
+    risk_agent,
+    strategy_agent,
+    report_agent,
+)
 
 
 def show_graph(name: str, agent, save_png: bool = False):

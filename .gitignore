@@ -1,13 +1,40 @@
+# Environment
 .env
+.env.*
+!.env.example
+
+# Python cache / test cache
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*$py.class
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments / packaging
 .venv/
 venv/
+env/
 dist/
 build/
 *.egg-info/
+
+# OS / editor
 .DS_Store
-logs/
-uploads/
+.idea/
+.vscode/
+
+# Runtime logs
+logs/*
+!logs/.gitkeep
+*.log
+
+# Local runtime data
+data/*
+!data/.gitkeep
+
+# Generated reports / scratch files
+*.png
+个股新闻_*.csv

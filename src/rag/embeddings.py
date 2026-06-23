@@ -9,10 +9,11 @@ from typing import Sequence
 import numpy as np
 from langchain_huggingface import HuggingFaceEmbeddings
 
-from src.config import EMBEDDING_MODEL, EMBEDDING_DIM, EMBEDDING_DEVICE
+from src.config import EMBEDDING_MODEL, EMBEDDING_DEVICE
 from src.logs import get_logger
 
 logger = get_logger(__name__)
+
 
 class EmbeddingModel:
     """BGE-Small 嵌入模型封装。"""
@@ -25,7 +26,9 @@ class EmbeddingModel:
             model_kwargs={"device": EMBEDDING_DEVICE},
             encode_kwargs={"normalize_embeddings": True},
         )
-        logger.info("[RAG] Embedding 模型加载完成")
+        probe = self._model.embed_documents(["dimension probe"])
+        self._dim = len(probe[0])
+        logger.info("[RAG] Embedding 模型加载完成，维度 %d", self._dim)
 
     def encode(self, texts: str | Sequence[str]) -> np.ndarray:
         if isinstance(texts, str):
@@ -35,4 +38,4 @@ class EmbeddingModel:
 
     @property
     def dim(self) -> int:
-        return EMBEDDING_DIM
+        return self._dim

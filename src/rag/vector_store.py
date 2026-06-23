@@ -42,6 +42,10 @@ class VectorStore:
         """
         if len(embeddings) != len(doc_ids):
             raise ValueError(f"embeddings({len(embeddings)}) 与 doc_ids({len(doc_ids)}) 长度不匹配")
+        if embeddings.ndim != 2 or embeddings.shape[1] != self.dim:
+            raise ValueError(
+                f"向量维度不匹配: embeddings.shape={embeddings.shape}, index_dim={self.dim}"
+            )
         ids = np.array(doc_ids, dtype=np.int64)
         self.index.add_with_ids(embeddings, ids)
         logger.info("[RAG] FAISS 添加 %d 条向量，总数 %d", len(embeddings), self.index.ntotal)
@@ -58,6 +62,10 @@ class VectorStore:
         """
         if query_vec.ndim == 1:
             query_vec = query_vec.reshape(1, -1)
+        if query_vec.ndim != 2 or query_vec.shape[1] != self.dim:
+            raise ValueError(
+                f"查询向量维度不匹配: query_vec.shape={query_vec.shape}, index_dim={self.dim}"
+            )
         scores, ids = self.index.search(query_vec, top_k)
         results = []
         for score, doc_id in zip(scores[0], ids[0]):

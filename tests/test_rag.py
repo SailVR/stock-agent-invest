@@ -13,13 +13,13 @@ import sys
 import time
 from pathlib import Path
 
-from src.config import HF_ENDPOINT
-os.environ.setdefault("HF_ENDPOINT", HF_ENDPOINT)
-
 _HERE = Path(__file__).resolve().parent
 _PROJECT_ROOT = _HERE.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
+
+from src.config import HF_ENDPOINT
+os.environ.setdefault("HF_ENDPOINT", HF_ENDPOINT)
 
 from src.logs import setup_logging
 setup_logging()
@@ -37,7 +37,7 @@ def _sep(title: str) -> None:
 
 
 def test_embedding_model() -> None:
-    """1. 测试 BGE-M3 模型加载和编码。"""
+    """1. 测试 BGE-Small 模型加载和编码。"""
     _sep("1. EmbeddingModel — 模型加载 & 编码")
 
     t0 = time.time()
@@ -66,8 +66,7 @@ def test_vector_store() -> None:
     """2. 测试 FAISS 检索。"""
     _sep("2. VectorStore — 向量存储 & 检索")
 
-    from src.config import EMBEDDING_DIM
-    dim = EMBEDDING_DIM
+    dim = 32
     store = VectorStore(dim)
 
     # 写入 5 条随机向量

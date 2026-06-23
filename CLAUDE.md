@@ -1,130 +1,195 @@
 # CLAUDE.md
 
-给 Claude Code (claude.ai/code) 在本仓库中工作时的指引。
+给 Claude Code / Codex 在本仓库中工作时的项目指引。
 
 ## 项目简介
 
-基于 **LangGraph + Multi-Agent** 的 A 股个人投研分析系统。采集市场行情、财务数据、新闻信息，通过 6 个 Agent 协作完成持仓分析、风险评估、策略建议和日报生成。
+这是一个基于 **Flask + LangGraph + Multi-Agent + RAG** 的 A 股个人投研分析系统。系统支持上传持仓 CSV 或直接聊天提问，自动采集市场行情、财务数据、新闻与风险信息，通过多个 Agent 协作生成持仓风险评级、策略建议和投资日报。
 
-**当前状态：** Agent 已全部实现，MVP 功能完整。所有 Agent 在 `app.py` 中定义为 LangGraph `StateGraph`。
+当前代码已经从单文件 Demo 拆成分层结构：
 
-## 运行测试
+- `app.py`：Flask 路由入口，负责页面、上传、聊天和 Memory API。
+- `src/agents/`：LangGraph Agent 定义与 Portfolio 主图。
+- `src/services/`：Web 路由背后的业务流程，如 SSE 分析流、RAG 懒加载。
+- `src/tools/`：所有 Tushare / AKShare 数据源访问。
+- `src/rag/`：FAISS + BM25 混合检索。
+- `memory/`：SQLite 长期记忆。
+
+## 运行与测试
 
 ```bash
 conda activate stock
+pip install -r requirements.txt
 
-# 全部测试
+# 启动服务，默认端口 5001
+python app.py
+
+# 工具层测试
 python tests/test_market_tools.py
 python tests/test_company_tools.py
+
+# LLM / RAG / Agent 图测试
 python tests/test_llm.py
 python tests/test_rag.py
 python tests/test_graph.py
-
-# 启动服务
-python app.py
 ```
 
-## 架构
+注意：测试依赖外部服务和模型下载，需要 `.env` 中有 `DASHSCOPE_API_KEY` / `DEEPSEEK_API_KEY` / `TUSHARE_API`，并安装完整依赖。
 
-```
+## 当前架构
+
+```text
 用户持仓 CSV / 聊天输入
-    │
-Portfolio Agent（主流程编排）
-    │
-    ├──→ Market Agent    ──┐  (三路并行, ThreadPoolExecutor)
-    ├──→ Company Agent   ──┤
-    └──→ Risk Agent      ──┘
-            │
-      merge_analysis（屏障节点，全部完成才放行）
-            │
-      Strategy Agent → Report Agent → Summary
+        │
+Flask Web / SSE
+        │
+src/services/analysis_stream.py
+        │
+├── Market Agent  ──┐
+├── Company Agent ──┤  三路并行 ThreadPoolExecutor
+└── Risk Agent    ──┘
+        │
+merge_analysis
+        │
+Strategy Agent
+        │
+Report Agent
+        │
+Memory + RAG
 ```
 
-**6 个 Agent：**
-
-| Agent | 节点数 | 功能 | 数据源 |
-|---|---|---|---|
-| **Portfolio Agent** (主图) | 8 节点 | 编排所有子图 | - |
-| **Market Agent** | 3 节点 | 指数行情、涨停池、LLM 情绪分析 | Tushare index_daily, AKShare zt_pool |
-| **Company Agent** | 2 节点 | 财务指标 + 新闻 + LLM 评级(5级) | Tushare fina_indicator, AKShare news |
-| **Risk Agent** | 3 节点 | ST 检测、停牌检测（过滤盘中暂停） | AKShare, Tushare suspend_d |
-| **Strategy Agent** | 1 节点 | LLM 综合策略建议 | - |
-| **Report Agent** | 1 节点 | LLM 生成投资日报 | - |
-
-## Agent 工作流
+`portfolio_agent` 主图也保留在 `src/agents/portfolio_agents.py` 中，使用 LangGraph fan-out + barrier：
 
 ```python
-# 串行
-parse_csv → enrich_holdings
-    │
-    ├──→ run_market_agent  (并行)
-    ├──→ run_company_agent (并行)
-    └──→ run_risk_agent    (并行)
-            │
-      merge_analysis（屏障路由：检查三个结果都就绪才放行）
-            │
-      run_strategy → run_report → generate_summary → END
+parse_csv -> enrich_holdings
+enrich_holdings -> run_market_agent
+enrich_holdings -> run_company_agent
+enrich_holdings -> run_risk_agent
+["run_market_agent", "run_company_agent", "run_risk_agent"] -> merge_analysis
+merge_analysis -> run_strategy_agent -> run_report_agent -> generate_summary
 ```
 
-## 关键设计模式
+上传分析为了实时推送进度，实际走 `src/services/analysis_stream.py` 手动并行调用三个子 Agent。
 
-### 1. Tool Layer 规范
+## Agent 列表
 
-所有工具函数在 `src/tools/` 中，返回 **JSON 可序列化的 `dict` / `list[dict]`**，不返回原始 DataFrame。
+| Agent           | 位置                               | 功能                                          |
+| --------------- | ---------------------------------- | --------------------------------------------- |
+| Portfolio Agent | `src/agents/portfolio_agents.py` | 主图编排 CSV 解析、三路分析、合并、策略、日报 |
+| Market Agent    | `src/agents/portfolio_agents.py` | 大盘指数、涨停池、市场情绪分析                |
+| Company Agent   | `src/agents/portfolio_agents.py` | 财务指标、新闻标题、LLM 基本面评级            |
+| Risk Agent      | `src/agents/portfolio_agents.py` | ST / 退市 / 停牌等硬风险检测                  |
+| Strategy Agent  | `src/agents/portfolio_agents.py` | 综合市场、个股、风险信号生成策略建议          |
+| Report Agent    | `src/agents/portfolio_agents.py` | 生成投资日报                                  |
 
-| 模块 | 函数 |
-|---|---|
-| `market_tools.py` | `get_market_index()`, `get_north_flow()`, `get_limit_up_stocks()` |
-| `company_tools.py` | `get_financial_indicators()`, `get_income_statement()`, `get_balance_sheet()`, `get_cash_flow()`, `fetch_stock_news()` |
+当前所有 Agent 暂集中在一个文件中，便于查看完整流程。若继续扩大，可以拆成 `states.py`、`market_agent.py`、`company_agent.py`、`risk_agent.py`、`strategy_agent.py`、`report_agent.py`、`portfolio_graph.py`。
 
-### 2. LangGraph 屏障模式
+## 分层约定
 
-Market/Company/Risk 三个 Agent 并行跑，`merge_analysis` 作为屏障节点检查三个结果都就绪才继续，通过 `merge_router` 条件路由实现：
+### Tool Layer
+
+所有数据源访问必须走 `src/tools/`，Agent 层不要直接 import `akshare` / `tushare`。
+
+| 模块                           | 职责                                           |
+| ------------------------------ | ---------------------------------------------- |
+| `src/tools/market_tools.py`  | 市场指数、北向资金、涨停池                     |
+| `src/tools/company_tools.py` | 财务指标、利润表、资产负债表、现金流、个股新闻 |
+| `src/tools/stock_tools.py`   | 股票名称映射、ST 检测、停牌检测、代码格式转换  |
+
+工具函数应该返回 JSON 可序列化的 `dict` / `list[dict]`，不要把 DataFrame 泄露给 Agent。
+
+### Service Layer
+
+| 文件                                | 职责                                          |
+| ----------------------------------- | --------------------------------------------- |
+| `src/services/analysis_stream.py` | 上传 CSV 后的 SSE 流式分析流程                |
+| `src/services/rag_provider.py`    | RAGManager 懒加载，避免首页启动加载 embedding |
+| `src/services/stock_lookup.py`    | 股票名称到代码的缓存和模糊匹配                |
+
+`app.py` 目前仍包含较长的 `chat_api()`，后续可拆到 `src/services/chat_stream.py`。
+
+## RAG 说明
+
+RAG 使用 `LazyRAGProvider` 懒加载：
+
+- 打开首页不会加载 embedding 模型。
+- 聊天命中历史检索或上传分析完成后写入 RAG 时，才初始化 `RAGManager`。
+- 首次初始化时清除 `data/rag_index.faiss` 和 `data/rag_docs.db`，再从 `data/rag_documents.jsonl` 恢复。
+- `EmbeddingModel` 会运行时自动探测真实向量维度，避免 FAISS 索引维度和模型输出不一致。
+
+检索流程：
+
+```text
+query -> BGE-Small 向量 -> FAISS cosine
+      -> BM25 关键词
+      -> 加权融合 -> top_k
+```
+
+## Memory 说明
+
+SQLite 记忆库在 `memory/` 下封装：
+
+- `portfolios`：持仓快照
+- `stock_notes`：个股分析记录
+- `user_interests`：用户偏好
+
+`memory/memory_extractor.py` 会调用 LLM 从聊天中提取偏好。当前 `src/llm.py::chat_json()` 对 JSON 数组支持仍可继续增强。
+
+## 页面说明
+
+| 页面       | 文件 / 路径                                  | 说明                                                       |
+| ---------- | -------------------------------------------- | ---------------------------------------------------------- |
+| 首页       | `templates/index.html` / `/`             | 聊天、上传持仓、历史/偏好侧栏                              |
+| 分析流     | `/analyze`                                 | SSE 返回分析进度                                           |
+| 报告页     | `templates/result.html` / `/result/<id>` | Dashboard 风格报告页：风险分布、市场概览、策略、日报、明细 |
+| Memory API | `/api/memory/*`                            | 偏好、历史、清空接口                                       |
+
+报告页包含免责声明：模型输出仅供研究参考，不构成投资建议。
+
+## 配置
+
+配置集中在 `src/config.py`。
+
+当前 `LLM_PROVIDER` 写死为：
 
 ```python
-def merge_router(state) -> str:
-    if state.get("market_assessments") and state.get("company_assessments") and state.get("risk_assessments") is not None:
-        return "ready"
-    return "wait"
+LLM_PROVIDER = "dashscope"
 ```
 
-### 3. RAG 混合检索（FAISS + BM25）
+可切换为 `"deepseek"`，但目前不是从 `.env` 读取。若后续优化，建议改成：
 
-```
-用户提问 → BGE-Small(384d) → FAISS cosine(语义)
-         → BM25 关键词匹配(中文按字分词)
-         → 加权融合(默认各0.5) → 返回 top_k
+```python
+LLM_PROVIDER = get_env("LLM_PROVIDER", "dashscope")
 ```
 
-- 启动时清除 FAISS + SQLite，从 `rag_documents.jsonl` 恢复
-- BM25 索引在首次搜索时自动重建
+Embedding：
 
-### 4. 风险评级 5 级
+- 模型：`BAAI/bge-small-zh-v1.5`
+- 设备：CPU
+- HF 镜像：`https://hf-mirror.com`
+- 维度：运行时自动探测
 
-AAA(🟢)/AA(🟢)/A(🟡)/BB(🟠)/CC(🔴)，LLM 按 prompt 标准判断 + 规则兜底。
+## 运行产物与 Git
 
-## 数据源说明
+`.gitignore` 已忽略：
 
-- **Tushare Pro** — 财务指标、指数行情、停牌数据，Token 从 `.env` 读取
-- **AKShare** — 涨停池、新闻、ST 检测
-- **LLM** — 千问或 DeepSeek，通过 `src/config.py` 的 `LLM_PROVIDER` 切换
-- **HF 镜像** — `https://hf-mirror.com`（国内环境使用 BGE 模型）
+- `.env`
+- `__pycache__` / `*.pyc`
+- `logs/*`
+- `data/*`
+- 虚拟环境、构建产物、编辑器目录
 
-## 启动流程
+保留：
 
-1. `app.py` 启动时清除旧 FAISS + SQLite → `RAGManager()` 从 `rag_documents.jsonl` 重建索引
-2. Flask 监听 5000 端口，提供 SSE 流式接口
-3. 上传 CSV → `/analyze` SSE 流 → 前端实时展示分析过程
-4. 聊天输入 → `/chat` SSE 流 → LLM 流式回复
+- `data/.gitkeep`
+- `logs/.gitkeep`
 
-## 关键文件
+当前项目不再使用 `uploads/`，该目录已删除。
 
-| 文件 | 作用 |
-|---|---|
-| `app.py` | Flask 入口 + 6 个 Agent 定义 + SSE 流式响应 |
-| `src/config.py` | 模型常量（LLM_MODEL, EMBEDDING_DIM, HF_ENDPOINT 等） |
-| `src/llm.py` | LLM 调用封装，`chat()` 流式 / `chat_json()` JSON 容错解析 |
-| `src/rag/rag_manager.py` | RAG 统一接口：add/search/save，FAISS+BM25+JSONL |
-| `src/rag/embeddings.py` | BGE-Small-zh 嵌入，384维，langchain_huggingface |
-| `memory/long_term_memory.py` | SQLite CRUD，持仓快照/分析记录/偏好 |
-| `templates/index.html` | 聊天界面，SSE 流式展示分析过程 |
+## 重要注意事项
+
+- 不要把 `.env`、数据库、FAISS 索引、日志提交到仓库。
+- 不要在 Agent 层直接访问 Tushare / AKShare，统一走 `src/tools/`。
+- 若改 RAG embedding 模型，确认 `EmbeddingModel.dim` 和 FAISS 索引维度仍由运行时探测。
+- 若改上传分析流程，注意前端依赖 SSE 事件：`parsed`、`progress`、`complete`、`error`。
+- 金融输出必须保持“仅供研究参考，不构成投资建议”的语义。

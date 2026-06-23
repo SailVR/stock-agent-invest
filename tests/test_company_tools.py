@@ -32,7 +32,7 @@ def _sep(title: str) -> None:
 def test_indicators() -> None:
     _sep("1. get_financial_indicators — 财务指标")
     # 贵州茅台
-    data = get_financial_indicators("600519.SH", end_date="20251231")
+    data = get_financial_indicators("600519.SH")
     if not data:
         print("  ⚠  No data returned.")
         return
@@ -50,7 +50,7 @@ def test_indicators() -> None:
 
 def test_income() -> None:
     _sep("2. get_income_statement — 利润表")
-    data = get_income_statement("600519.SH", end_date="20251231")
+    data = get_income_statement("600519.SH")
     if not data:
         print("  ⚠  No data returned.")
         return
@@ -66,7 +66,7 @@ def test_income() -> None:
 
 def test_balance() -> None:
     _sep("3. get_balance_sheet — 资产负债表")
-    data = get_balance_sheet("600519.SH", end_date="20251231")
+    data = get_balance_sheet("600519.SH")
     if not data:
         print("  ⚠  No data returned.")
         return
@@ -82,7 +82,7 @@ def test_balance() -> None:
 
 def test_cashflow() -> None:
     _sep("4. get_cash_flow — 现金流量表")
-    data = get_cash_flow("600519.SH", end_date="20251231")
+    data = get_cash_flow("600519.SH")
     if not data:
         print("  ⚠  No data returned.")
         return
